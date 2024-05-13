@@ -15,6 +15,7 @@ from langchain.tools.render import format_tool_to_openai_function
 from langchain.tools import StructuredTool
 from langchain.agents.format_scratchpad import format_to_openai_functions
 from langchain.agents import AgentExecutor
+from langchain.memory import ChatMessageHistory
 
 def run_agent(user_input, agent_chain):
     intermediate_steps = []
@@ -95,7 +96,13 @@ def main():
     ) | prompt | model | OpenAIFunctionsAgentOutputParser()
     from langchain.memory import ConversationBufferMemory
     memory = ConversationBufferMemory(return_messages=True,memory_key="chat_history")   
-    agent_executor = AgentExecutor(agent=agent_chain, tools=tools, verbose=True, memory=memory)
+    # memory = StreamlitChatMessageHistory(key="chat_messages")
+    def run_agent_chain(prompt, chat_history):
+        history = ChatMessageHistory()
+        history.messages = chat_history
+        memory = ConversationBufferMemory(chat_memory=history, return_messages=True,memory_key="chat_history")
+        agent_executor = AgentExecutor(agent=agent_chain, tools=tools, verbose=True, memory=memory)
+        return agent_executor.invoke({"input": prompt})
     for func in tools:
         print(func)
     print("\n")
@@ -108,6 +115,8 @@ def main():
     # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    if "agent_memory" not in st.session_state:
+        st.session_state["agent_memory"] = []
 
     # Display chat messages from history on app rerun   
     for message in st.session_state.messages:
@@ -131,11 +140,13 @@ def main():
             #     ],
             #     stream=True,
             # )
-            response = agent_executor.invoke({"input": prompt})
+            response = run_agent_chain(prompt, st.session_state["agent_memory"])
             st.write(response['output'])
+            st.session_state["agent_memory"] = response["chat_history"]
             if forecast_weather.fig is not None:
                 fig = forecast_weather.fig
                 st.plotly_chart(fig)
+            print(st.session_state["agent_memory"])
         st.session_state.messages.append({"role": "assistant", "content": response['output']})
 if __name__ == "__main__":
     main()
