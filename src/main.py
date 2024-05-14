@@ -1,5 +1,6 @@
 import streamlit as st
 from openai import OpenAI
+from datetime import datetime
 import dotenv
 import os
 from typing import Callable
@@ -7,6 +8,7 @@ from typing import Callable
 from get_current_temperature import get_current_temperature
 from search_wikipedia import search_wikipedia
 from get_forecast_weather import ForecastWeather, OpenMeteoInput
+from get_historical_weather import HistoricalTemperature, OpenMeteoHistoryInput
 from langchain.pydantic_v1 import Field, create_model
 from langchain.schema.agent import AgentFinish
 from langchain.prompts import MessagesPlaceholder
@@ -70,21 +72,33 @@ def main():
     client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
     forecast_weather = ForecastWeather()
     # Create agent
-    test = StructuredTool.from_function(
+    forecast_weather_tool = StructuredTool.from_function(
         func=forecast_weather.get_forecast_weather,
         name="get_forecast_weather",
         description="Fetch forecast weather for given coordinates.",
         args_schema=OpenMeteoInput,
         return_direct=False,
     )
-    print(test, "\n")
-    tools = [get_current_temperature, search_wikipedia, test]
+
+
+    
+    historical_temperature = HistoricalTemperature()
+
+    historical_temperature_tool = StructuredTool.from_function(
+        func=historical_temperature.get_historical_temperature,
+        name="get_historical_temperature",
+        description="Fetch historical temperatures for given coordinates across a given time period.",
+        args_schema=OpenMeteoHistoryInput,
+        return_direct=False
+    )
+
+    tools = [get_current_temperature, search_wikipedia, forecast_weather_tool, historical_temperature_tool]
     from langchain.chat_models import ChatOpenAI
     from langchain.prompts import ChatPromptTemplate
     from langchain.tools.render import format_tool_to_openai_function
     from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are helpful but sassy assistant"),
+        ("system", f"You are helpful assistant. You have tools available to you to help you answer users questions. The current date is {datetime.now().strftime('%Y-%m-%d')} in YYYY-MM-DD format."),
         MessagesPlaceholder(variable_name="chat_history"),
         ("user", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad")
@@ -145,6 +159,9 @@ def main():
             st.session_state["agent_memory"] = response["chat_history"]
             if forecast_weather.fig is not None:
                 fig = forecast_weather.fig
+                st.plotly_chart(fig)
+            if historical_temperature.fig is not None:
+                fig = historical_temperature.fig
                 st.plotly_chart(fig)
             print(st.session_state["agent_memory"])
         st.session_state.messages.append({"role": "assistant", "content": response['output']})
