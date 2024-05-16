@@ -53,7 +53,12 @@ class HistoricalTemperature:
             fig.add_trace(go.Scatter(x=df.time, y=df[col], name=col))
 
         self.fig = fig
+        max_temp = df.temperature.max()
+        max_date = df.iloc[df["temperature"].idxmax()].time
 
-        summary_string = f"The maximum temperature in the given period is {df.temperature.max()} and the minimum temperutature is {df.temperature.min()}"
+        min_temp = df.temperature.min()
+        min_date = df.iloc[df["temperature"].idxmax()].time
+        summary_string = f"The maximum temperature in the given period is {max_temp} and occured on the {max_date}. "
+        summary_string += f"The minimum temperature in the given period is {min_temp} and occured on the {min_date}."
 
         return summary_string

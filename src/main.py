@@ -3,10 +3,12 @@ from openai import OpenAI
 from datetime import datetime
 import dotenv
 import os
+import json
 from typing import Callable
 
 from get_current_temperature import get_current_temperature
 from search_wikipedia import search_wikipedia
+from centigrade_to_fahrenheit import centigrade_to_fahrenheit
 from get_forecast_weather import ForecastWeather, OpenMeteoInput
 from get_historical_weather import HistoricalTemperature, OpenMeteoHistoryInput
 from langchain.pydantic_v1 import Field, create_model
@@ -92,7 +94,7 @@ def main():
         return_direct=False
     )
 
-    tools = [get_current_temperature, search_wikipedia, forecast_weather_tool, historical_temperature_tool]
+    tools = [get_current_temperature, search_wikipedia, forecast_weather_tool, historical_temperature_tool, centigrade_to_fahrenheit]
     from langchain.chat_models import ChatOpenAI
     from langchain.prompts import ChatPromptTemplate
     from langchain.tools.render import format_tool_to_openai_function
@@ -117,11 +119,13 @@ def main():
         memory = ConversationBufferMemory(chat_memory=history, return_messages=True,memory_key="chat_history")
         agent_executor = AgentExecutor(agent=agent_chain, tools=tools, verbose=True, memory=memory)
         return agent_executor.invoke({"input": prompt})
-    for func in tools:
-        print(func)
-    print("\n")
+    # for func in tools:
+    #     print(func)
+    # print("\n")
     for func in functions:
-        print(func)
+        print("\n")
+        print(json.dumps(func,indent=2))
+        print("\n")
     # Set a default model
     if "openai_model" not in st.session_state:
         st.session_state["openai_model"] = "gpt-3.5-turbo"
